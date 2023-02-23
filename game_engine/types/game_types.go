@@ -11,6 +11,18 @@ type Board struct {
 	Board [][]*Unit
 }
 
+type Move struct {
+	ID      MoveId
+	Command string
+}
+
+type MoveId int
+
+const (
+	PUT_HOUSE MoveId = iota
+	MOVE_UNIT
+)
+
 type Game struct {
 	*Board                  // the 2D board of the game
 	Players       []*Player // the two players
@@ -20,6 +32,7 @@ type Game struct {
 }
 
 type Player struct {
+	ID        uint   // unique ID of the player
 	Name      string // the name of the player
 	Color     Color  // the color of the player (white or black)
 	NumHouses uint   // the number of houses the player has left to place
@@ -43,6 +56,32 @@ type Position struct {
 	Y uint // the y-coordinate of the position
 }
 
+func StringToPosition(stringPos string) (Position, error) {
+	pos := Position{}
+	if len(stringPos) != 2 {
+		return pos, fmt.Errorf("invalid position string: %s", stringPos)
+	}
+	stringPos = strings.ToUpper(stringPos)
+
+	x, err := strconv.Atoi(string(stringPos[1]))
+	if err != nil || x < 1 || x > 9 {
+		return pos, fmt.Errorf("invalid y coordinate: %s", stringPos)
+	}
+
+	y := int(stringPos[0]) - int('A')
+	if y < 0 || y > 25 {
+		return pos, fmt.Errorf("invalid x coordinate: %s", stringPos)
+	}
+
+	pos.X = uint(x)
+	pos.Y = uint(y)
+	return pos, nil
+}
+
+func (pos Position) PositionToString() string {
+	return fmt.Sprintf("%c%d", pos.X+'A', pos.Y+1)
+}
+
 type UnitName int
 
 const (
@@ -50,6 +89,15 @@ const (
 	DRAGON
 	KNIGHT
 	HOUSE
+)
+
+type Direction string
+
+const (
+	Up    Direction = "up"
+	Down  Direction = "down"
+	Left  Direction = "left"
+	Right Direction = "right"
 )
 
 type Color string
@@ -75,6 +123,64 @@ func (game *Game) NextTurn() {
 	} else {
 		game.CurrentPlayer = 0
 	}
+}
+
+func (game *Game) HandleMove(move Move, args []string) error {
+	if move.ID == PUT_HOUSE {
+		pos, errPosition := StringToPosition(args[0])
+		if errPosition != nil {
+			return errPosition
+		}
+		game.PositionHouse(pos.X, pos.Y)
+	} else if move.ID == MOVE_UNIT {
+		if len(args) != 2 {
+			return fmt.Errorf("invalid command move (move <position> <direction>)")
+		}
+
+		pos, errPosition := StringToPosition(args[0])
+		if errPosition != nil {
+			return errPosition
+		}
+
+		unit := game.Board.GetUnitAtPosition(pos)
+		if unit == nil {
+			return fmt.Errorf("no unit found at " + pos.PositionToString())
+		}
+
+		dir, errDir := ParseDirection(args[1])
+		if errDir != nil {
+			return errDir
+		}
+
+		if unit.Owner.ID != game.Players[game.CurrentPlayer].ID {
+			return fmt.Errorf("cannot move the opponent's piece")
+		}
+		game.MoveUnit(unit, dir)
+	}
+
+	return nil
+}
+
+func ParseDirection(dirStr string) (Direction, error) {
+	switch dirStr {
+	case "up":
+		return Up, nil
+	case "down":
+		return Down, nil
+	case "left":
+		return Left, nil
+	case "right":
+		return Right, nil
+	default:
+		return Up, fmt.Errorf("invalid direction (up, down, left, right)")
+	}
+}
+
+func (game *Game) MoveUnit(unit *Unit, direction Direction) error {
+	fmt.Println("Pretending to move: ", unit.Name, " towards: ", direction)
+	game.NextTurn()
+
+	return nil
 }
 
 func (board *Board) Adjacent(pos Position) []Position {
@@ -214,14 +320,24 @@ func (game *Game) Print() {
 }
 
 func (board *Board) Print() {
-	// Print top border
-	fmt.Println(strings.Repeat(BORDER_TILE, 10*2+1))
+	fmt.Println()
 
-	for _, row := range board.Board {
+	// Print column labels
+	fmt.Print(" " + VERTICAL_TILE)
+	for col := 0; col < len(board.Board[0]); col++ {
+		fmt.Printf(" %c ", 'A'+col)
+		fmt.Print(VERTICAL_TILE)
+	}
+	fmt.Println()
+	// Print top border
+	fmt.Println(strings.Repeat(BORDER_TILE, len(board.Board[0])*2+1))
+
+	for row, unitRow := range board.Board {
 		// Print left border
+		fmt.Print(strconv.Itoa(row))
 		fmt.Print(VERTICAL_TILE)
 
-		for _, unit := range row {
+		for _, unit := range unitRow {
 			var tile string
 
 			if unit == nil {
@@ -246,6 +362,6 @@ func (board *Board) Print() {
 		fmt.Println()
 
 		// Print horizontal border
-		fmt.Println(strings.Repeat(BORDER_TILE, 10*2+1))
+		fmt.Println(strings.Repeat(BORDER_TILE, len(board.Board[0])*2+1))
 	}
 }

@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"errors"
+	"fmt"
 	"game_engine/types"
+	"strings"
 )
 
 func NewGame(size uint) *types.Game {
@@ -13,8 +16,8 @@ func NewGame(size uint) *types.Game {
 		board.Board[i] = make([]*types.Unit, size)
 	}
 
-	player1 := CreatePlayer("A", types.Red, 6)
-	player2 := CreatePlayer("B", types.Blue, 6)
+	player1 := CreatePlayer(0, "A", types.Red, 6)
+	player2 := CreatePlayer(1, "B", types.Blue, 6)
 
 	game := &types.Game{
 		Board:         board,
@@ -45,11 +48,38 @@ func NewGame(size uint) *types.Game {
 	return game
 }
 
-func CreatePlayer(name string, color types.Color, numHouses uint) *types.Player {
+func CreatePlayer(id uint, name string, color types.Color, numHouses uint) *types.Player {
 	return &types.Player{
+		ID:        id,
 		Name:      name,
 		Color:     color,
 		NumHouses: numHouses,
 		Score:     0,
 	}
+}
+
+// Parse move string into a Move struct
+func ParseMove(moveStr string, availableMoves []types.Move) (types.Move, []string, error) {
+	// Split move string into command and args
+	parts := strings.Split(moveStr, " ")
+	command := parts[0]
+	args := parts[1:]
+
+	move, errMove := GetMove(availableMoves, command)
+	// Check if command is valid
+	if errMove != nil {
+		return move, args, fmt.Errorf("invalid command: %s", command)
+	}
+
+	return move, args, nil
+}
+
+// Check if a slice of strings contains a given string
+func GetMove(moves []types.Move, s string) (types.Move, error) {
+	for _, m := range moves {
+		if m.Command == s {
+			return m, nil
+		}
+	}
+	return types.Move{}, errors.New("move not found")
 }
