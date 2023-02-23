@@ -12,8 +12,9 @@ type Board struct {
 }
 
 type Move struct {
-	ID      MoveId
-	Command string
+	ID        MoveId
+	Command   string
+	Arguments string
 }
 
 type MoveId int
@@ -40,7 +41,7 @@ type Player struct {
 }
 
 func (player *Player) Print() {
-	fmt.Println("Player ", player.Name, ": ", player.Score, " | Houses: ", strconv.Itoa(int(player.NumHouses)))
+	fmt.Println(string(player.Color), "Player ", player.Name, ": ", player.Score, " | Houses: ", strconv.Itoa(int(player.NumHouses)), Reset)
 }
 
 type Unit struct {
@@ -56,7 +57,7 @@ type Position struct {
 	Y uint // the y-coordinate of the position
 }
 
-func StringToPosition(stringPos string) (Position, error) {
+func StringToPosition(stringPos string, sizeBoard int) (Position, error) {
 	pos := Position{}
 	if len(stringPos) != 2 {
 		return pos, fmt.Errorf("invalid position string: %s", stringPos)
@@ -64,12 +65,12 @@ func StringToPosition(stringPos string) (Position, error) {
 	stringPos = strings.ToUpper(stringPos)
 
 	x, err := strconv.Atoi(string(stringPos[1]))
-	if err != nil || x < 1 || x > 9 {
+	if err != nil || x < 0 || x > 9 {
 		return pos, fmt.Errorf("invalid y coordinate: %s", stringPos)
 	}
 
 	y := int(stringPos[0]) - int('A')
-	if y < 0 || y > 25 {
+	if y < 0 || y >= sizeBoard {
 		return pos, fmt.Errorf("invalid x coordinate: %s", stringPos)
 	}
 
@@ -79,7 +80,7 @@ func StringToPosition(stringPos string) (Position, error) {
 }
 
 func (pos Position) PositionToString() string {
-	return fmt.Sprintf("%c%d", pos.X+'A', pos.Y+1)
+	return fmt.Sprintf("%c%d", pos.X+uint('A'), pos.Y)
 }
 
 type UnitName int
@@ -127,17 +128,21 @@ func (game *Game) NextTurn() {
 
 func (game *Game) HandleMove(move Move, args []string) error {
 	if move.ID == PUT_HOUSE {
-		pos, errPosition := StringToPosition(args[0])
+		pos, errPosition := StringToPosition(args[0], len(game.Board.Board[0]))
 		if errPosition != nil {
 			return errPosition
 		}
-		game.PositionHouse(pos.X, pos.Y)
+		unit := game.Board.GetUnitAtPosition(pos)
+		if unit != nil {
+			return fmt.Errorf("cannot place house as unit already found at " + pos.PositionToString())
+		}
+		return game.PositionHouse(pos.X, pos.Y)
 	} else if move.ID == MOVE_UNIT {
 		if len(args) != 2 {
 			return fmt.Errorf("invalid command move (move <position> <direction>)")
 		}
 
-		pos, errPosition := StringToPosition(args[0])
+		pos, errPosition := StringToPosition(args[0], len(game.Board.Board[0]))
 		if errPosition != nil {
 			return errPosition
 		}
@@ -155,10 +160,10 @@ func (game *Game) HandleMove(move Move, args []string) error {
 		if unit.Owner.ID != game.Players[game.CurrentPlayer].ID {
 			return fmt.Errorf("cannot move the opponent's piece")
 		}
-		game.MoveUnit(unit, dir)
+		return game.MoveUnit(unit, dir)
 	}
 
-	return nil
+	return fmt.Errorf("no move performed")
 }
 
 func ParseDirection(dirStr string) (Direction, error) {
@@ -178,7 +183,6 @@ func ParseDirection(dirStr string) (Direction, error) {
 
 func (game *Game) MoveUnit(unit *Unit, direction Direction) error {
 	fmt.Println("Pretending to move: ", unit.Name, " towards: ", direction)
-	game.NextTurn()
 
 	return nil
 }
@@ -227,24 +231,22 @@ func (board *Board) IsAdjacentToHouse(position Position) bool {
 	return false
 }
 
-func (board *Board) IsValidPosition(position Position, unitName UnitName) bool {
+func (board *Board) IsValidPosition(position Position, unitName UnitName) error {
 	if !board.IsValid(position) {
-		return false
+		return fmt.Errorf("position out of the board")
 	}
 
 	// Check if there is already a unit at the specified position
 	if board.GetUnitAtPosition(position) != nil {
-		fmt.Println("there is already a unit at the specified position")
-		return false
+		return fmt.Errorf("there is already a unit at the specified position")
 	}
 
 	// Check if there is a house next to the specified position
 	if unitName == HOUSE && board.IsAdjacentToHouse(position) {
-		fmt.Println("cannot place unit next to a house")
-		return false
+		return fmt.Errorf("cannot place unit next to a house")
 	}
 
-	return true
+	return nil
 }
 
 func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y uint) error {
@@ -255,8 +257,9 @@ func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y uint) err
 	pos := Position{X: x, Y: y}
 
 	// Check if the position is valid
-	if !game.Board.IsValidPosition(pos, unitName) {
-		return errors.New("position is invalid")
+	posErr := game.Board.IsValidPosition(pos, unitName)
+	if posErr != nil {
+		return posErr
 	}
 
 	unit := &Unit{
@@ -280,9 +283,10 @@ func (game *Game) PositionHouse(x, y uint) error {
 
 	pos := Position{X: x, Y: y}
 
+	posErr := game.Board.IsValidPosition(pos, HOUSE)
 	// Check if the position is valid
-	if !game.Board.IsValidPosition(pos, HOUSE) {
-		return errors.New("position is invalid")
+	if posErr != nil {
+		return posErr
 	}
 
 	player.NumHouses--
@@ -296,8 +300,6 @@ func (game *Game) PositionHouse(x, y uint) error {
 	}
 
 	game.Board.Board[x][y] = unit
-
-	game.NextTurn()
 
 	return nil
 }

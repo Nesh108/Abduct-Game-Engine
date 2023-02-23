@@ -10,35 +10,54 @@ import (
 )
 
 func main() {
+	availableMoves := []types.Move{
+		types.Move{ID: types.PUT_HOUSE, Command: "put-house", Arguments: "\t<position> (e.g. B1)"},
+		types.Move{ID: types.MOVE_UNIT, Command: "move", Arguments: "\t<position> <direction> (up/down/left/right)"},
+		types.Move{ID: types.PUT_HOUSE, Command: "ph", Arguments: "\t<position> (e.g. B1)"},
+		types.Move{ID: types.MOVE_UNIT, Command: "m", Arguments: "\t<position> <direction> (up/down/left/right)"},
+	}
+
 	fmt.Println("====================================")
 	fmt.Println(types.Red, "Ambush Game", types.Reset)
 	fmt.Println("-----------------------------")
 
 	game := engine.NewGame(10)
-
-	availableMoves := []types.Move{
-		types.Move{ID: types.PUT_HOUSE, Command: "put-house"},
-		types.Move{ID: types.MOVE_UNIT, Command: "move"},
-	}
+	game.Print()
 
 	for !game.Finished {
-		game.Print()
-
-		fmt.Printf("Player %s, enter your move: ", game.Players[game.CurrentPlayer].Name)
+		currentPlayer := game.Players[game.CurrentPlayer]
+		fmt.Println()
+		fmt.Printf(string(currentPlayer.Color)+"[Player %s]"+types.Reset+" > ", currentPlayer.Name)
 		// Read input from player
 		moveStr := readLine("Enter move: ")
+		moveStr = strings.ToLower(moveStr)
+
+		if moveStr == "help" {
+			fmt.Println()
+			fmt.Println("Available Moves: ")
+			for _, move := range availableMoves {
+				fmt.Println(move.Command, " ", move.Arguments)
+			}
+			fmt.Println()
+			continue
+		}
 
 		// Parse move string into move struct
 		move, args, errParseMove := engine.ParseMove(moveStr, availableMoves)
 		if errParseMove != nil {
-			fmt.Printf("Invalid move: %s\n", errParseMove)
+			game.Print()
+			fmt.Printf(string(types.Red)+"Invalid move: %s\n"+types.Reset, errParseMove)
 			continue
 		}
 
 		errMove := game.HandleMove(move, args)
 		if errMove != nil {
-			fmt.Printf("Invalid move: %s\n", errMove)
+			game.Print()
+			fmt.Printf(string(types.Red)+"Invalid move: %s\n"+types.Reset, errMove)
 			continue
+		} else {
+			game.NextTurn()
+			game.Print()
 		}
 	}
 
