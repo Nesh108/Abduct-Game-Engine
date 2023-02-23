@@ -14,7 +14,7 @@ type Board struct {
 type Game struct {
 	*Board                  // the 2D board of the game
 	Players       []*Player // the two players
-	CurrentPlayer *Player   // the current player
+	CurrentPlayer uint      // the current player
 	Finished      bool      // whether the game is finished
 	TurnNumber    uint      // current turn id
 }
@@ -65,6 +65,17 @@ const (
 	Gray   Color  = "\033[37m"
 	Bold   string = "\033[1m"
 )
+
+func (game *Game) NextTurn() {
+	game.TurnNumber++
+
+	// Swap player
+	if game.CurrentPlayer == 0 {
+		game.CurrentPlayer = 1
+	} else {
+		game.CurrentPlayer = 0
+	}
+}
 
 func (board *Board) Adjacent(pos Position) []Position {
 	adjacent := []Position{
@@ -130,20 +141,16 @@ func (board *Board) IsValidPosition(position Position, unitName UnitName) bool {
 	return true
 }
 
-func (board *Board) PositionUnit(unitName UnitName, player *Player, x, y uint, canMove ...bool) error {
-	if unitName == HOUSE && player.NumHouses <= 0 {
-		return errors.New("no more houses available for placement")
+func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y uint) error {
+	if unitName == HOUSE {
+		return errors.New("cannot place houses with this")
 	}
 
 	pos := Position{X: x, Y: y}
 
 	// Check if the position is valid
-	if !board.IsValidPosition(pos, unitName) {
+	if !game.Board.IsValidPosition(pos, unitName) {
 		return errors.New("position is invalid")
-	}
-
-	if unitName == HOUSE {
-		player.NumHouses--
 	}
 
 	unit := &Unit{
@@ -153,11 +160,38 @@ func (board *Board) PositionUnit(unitName UnitName, player *Player, x, y uint, c
 		Position: pos,
 		Owner:    player,
 	}
-	if len(canMove) > 0 {
-		unit.CanMove = canMove[0]
+
+	game.Board.Board[x][y] = unit
+
+	return nil
+}
+
+func (game *Game) PositionHouse(x, y uint) error {
+	player := game.Players[game.CurrentPlayer]
+	if player.NumHouses <= 0 {
+		return errors.New("no more houses available for placement")
 	}
 
-	board.Board[x][y] = unit
+	pos := Position{X: x, Y: y}
+
+	// Check if the position is valid
+	if !game.Board.IsValidPosition(pos, HOUSE) {
+		return errors.New("position is invalid")
+	}
+
+	player.NumHouses--
+
+	unit := &Unit{
+		Name:     HOUSE,
+		Color:    player.Color,
+		CanMove:  false,
+		Position: pos,
+		Owner:    player,
+	}
+
+	game.Board.Board[x][y] = unit
+
+	game.NextTurn()
 
 	return nil
 }

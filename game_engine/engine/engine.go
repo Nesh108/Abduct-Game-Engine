@@ -19,28 +19,28 @@ func NewGame(size uint) *types.Game {
 	game := &types.Game{
 		Board:         board,
 		Players:       []*types.Player{player1, player2},
-		CurrentPlayer: player1,
+		CurrentPlayer: 0,
 		Finished:      false,
 		TurnNumber:    1,
 	}
 
 	// Position Player 1's units
-	game.PositionUnit(types.WIZARD, player1, 4, 5, true)
-	game.PositionUnit(types.DRAGON, player1, 3, 5, true)
-	game.PositionUnit(types.DRAGON, player1, 3, 6, true)
-	game.PositionUnit(types.DRAGON, player1, 4, 6, true)
-	game.PositionUnit(types.KNIGHT, player1, 1, 6, true)
-	game.PositionUnit(types.KNIGHT, player1, 2, 7, true)
-	game.PositionUnit(types.KNIGHT, player1, 3, 8, true)
+	game.PositionUnit(types.WIZARD, player1, 4, 5)
+	game.PositionUnit(types.DRAGON, player1, 3, 5)
+	game.PositionUnit(types.DRAGON, player1, 3, 6)
+	game.PositionUnit(types.DRAGON, player1, 4, 6)
+	game.PositionUnit(types.KNIGHT, player1, 1, 6)
+	game.PositionUnit(types.KNIGHT, player1, 2, 7)
+	game.PositionUnit(types.KNIGHT, player1, 3, 8)
 
 	// Position Player 2's units
-	game.PositionUnit(types.WIZARD, player2, 5, 4, true)
-	game.PositionUnit(types.DRAGON, player2, 5, 3, true)
-	game.PositionUnit(types.DRAGON, player2, 6, 3, true)
-	game.PositionUnit(types.DRAGON, player2, 6, 4, true)
-	game.PositionUnit(types.KNIGHT, player2, 6, 1, true)
-	game.PositionUnit(types.KNIGHT, player2, 7, 2, true)
-	game.PositionUnit(types.KNIGHT, player2, 8, 3, true)
+	game.PositionUnit(types.WIZARD, player2, 5, 4)
+	game.PositionUnit(types.DRAGON, player2, 5, 3)
+	game.PositionUnit(types.DRAGON, player2, 6, 3)
+	game.PositionUnit(types.DRAGON, player2, 6, 4)
+	game.PositionUnit(types.KNIGHT, player2, 6, 1)
+	game.PositionUnit(types.KNIGHT, player2, 7, 2)
+	game.PositionUnit(types.KNIGHT, player2, 8, 3)
 
 	return game
 }

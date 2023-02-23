@@ -8,30 +8,29 @@ import (
 
 func main() {
 	fmt.Println("====================================")
-	fmt.Println("\033[31mAbduct Game\033[0m")
+	fmt.Println(types.Red, "Ambush Game", types.Reset)
 	fmt.Println("-----------------------------")
 
 	game := engine.NewGame(10)
 
 	game.Print()
 
-	game.PositionUnit(types.HOUSE, game.Players[0], 0, 0)
-	game.PositionUnit(types.HOUSE, game.Players[1], 0, 2)
-	game.PositionUnit(types.HOUSE, game.Players[0], 0, 4)
-	game.PositionUnit(types.HOUSE, game.Players[1], 0, 6)
-	game.PositionUnit(types.HOUSE, game.Players[0], 0, 8)
-	game.PositionUnit(types.HOUSE, game.Players[1], 2, 0)
-	game.PositionUnit(types.HOUSE, game.Players[0], 2, 2)
-	game.PositionUnit(types.HOUSE, game.Players[1], 2, 4)
-	game.PositionUnit(types.HOUSE, game.Players[0], 2, 6)
-	game.PositionUnit(types.HOUSE, game.Players[1], 2, 8)
-	game.PositionUnit(types.HOUSE, game.Players[0], 4, 1)
-	game.PositionUnit(types.HOUSE, game.Players[1], 4, 3)
+	game.PositionHouse(0, 0)
+	game.PositionHouse(0, 2)
+	game.PositionHouse(0, 4)
+	game.PositionHouse(0, 6)
+	game.PositionHouse(0, 8)
+	game.PositionHouse(2, 0)
+	game.PositionHouse(2, 2)
+	game.PositionHouse(2, 4)
+	game.PositionHouse(2, 6)
+	game.PositionHouse(2, 8)
+	game.PositionHouse(4, 1)
+	game.PositionHouse(4, 3)
 
 	game.Print()
 
-	// Implement Next Turn (automatic) - add ++ to turn number, Set game.CurrentPlayer and switch it after every PositionUnit/etc.
-	// Implement the fighting mechanism
+	// Implement Next Turn (automatic) - add ++ to turn number, Set game.CurrentPlayer and switch it after every PositionHouse/Implement the fighting mechanism
 	// Implement the check mate mechanism
 	// Implement the check mechanism
 	// Implement the game loop asking each player to make their move (read orig pos and new pos)
