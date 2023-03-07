@@ -50,6 +50,7 @@ type Unit struct {
 	CanMove  bool     // whether the unit can move
 	Position Position // the position of the unit on the board
 	Owner    *Player  // who owns the piece
+	Points   uint     // points given on kill
 }
 
 type Position struct {
@@ -79,17 +80,13 @@ func StringToPosition(stringPos string, sizeBoard int) (Position, error) {
 	return pos, nil
 }
 
-func (pos Position) PositionToString() string {
-	return fmt.Sprintf("%c%d", pos.X+uint('A'), pos.Y)
-}
-
-type UnitName int
+type UnitName string
 
 const (
-	WIZARD UnitName = iota
-	DRAGON
-	KNIGHT
-	HOUSE
+	WIZARD UnitName = "Wizard"
+	DRAGON UnitName = "Dragon"
+	KNIGHT          = "Knight"
+	HOUSE           = "House"
 )
 
 type Direction string
@@ -126,44 +123,44 @@ func (game *Game) NextTurn() {
 	}
 }
 
-func (game *Game) HandleMove(move Move, args []string) error {
+func (game *Game) HandleMove(move Move, args []string) (bool, error) {
 	if move.ID == PUT_HOUSE {
 		pos, errPosition := StringToPosition(args[0], len(game.Board.Board[0]))
 		if errPosition != nil {
-			return errPosition
+			return false, errPosition
 		}
 		unit := game.Board.GetUnitAtPosition(pos)
 		if unit != nil {
-			return fmt.Errorf("cannot place house as unit already found at " + pos.PositionToString())
+			return false, fmt.Errorf("cannot place house as unit already found at " + args[0])
 		}
-		return game.PositionHouse(pos.X, pos.Y)
+		return false, game.PositionHouse(pos.X, pos.Y)
 	} else if move.ID == MOVE_UNIT {
 		if len(args) != 2 {
-			return fmt.Errorf("invalid command move (move <position> <direction>)")
+			return false, fmt.Errorf("invalid command move (move <position> <direction>)")
 		}
 
 		pos, errPosition := StringToPosition(args[0], len(game.Board.Board[0]))
 		if errPosition != nil {
-			return errPosition
+			return false, errPosition
 		}
 
 		unit := game.Board.GetUnitAtPosition(pos)
 		if unit == nil {
-			return fmt.Errorf("no unit found at " + pos.PositionToString())
+			return false, fmt.Errorf("no unit found at " + args[0])
 		}
 
 		dir, errDir := ParseDirection(args[1])
 		if errDir != nil {
-			return errDir
+			return false, errDir
 		}
 
 		if unit.Owner.ID != game.Players[game.CurrentPlayer].ID {
-			return fmt.Errorf("cannot move the opponent's piece")
+			return false, fmt.Errorf("cannot move the opponent's piece")
 		}
 		return game.MoveUnit(unit, dir)
 	}
 
-	return fmt.Errorf("no move performed")
+	return false, fmt.Errorf("no move performed")
 }
 
 func ParseDirection(dirStr string) (Direction, error) {
@@ -181,10 +178,180 @@ func ParseDirection(dirStr string) (Direction, error) {
 	}
 }
 
-func (game *Game) MoveUnit(unit *Unit, direction Direction) error {
-	fmt.Println("Pretending to move: ", unit.Name, " towards: ", direction)
+func (game *Game) MoveUnit(unit *Unit, direction Direction) (bool, error) {
+	switch unit.Name {
+	case KNIGHT:
+		return game.MoveKnight(unit, direction)
+	case DRAGON:
+		return game.MoveDragon(unit, direction)
+	case WIZARD:
+		return game.MoveWizard(unit, direction)
+	case HOUSE:
+		return false, fmt.Errorf("houses cannot be moved")
+	}
+	return false, fmt.Errorf("invalid unit selected: %s", unit.Name)
+}
 
-	return nil
+func (game *Game) MoveKnight(unit *Unit, direction Direction) (bool, error) {
+	hasKilledWizard := false
+	stepsMade := 0
+	nextPosition := unit.Position.MoveByOneTowardsDirection(direction)
+	for game.Board.IsValid(nextPosition) {
+		otherUnit := game.Board.GetUnitAtPosition(nextPosition)
+		if otherUnit != nil {
+			// Unit from someone else
+			if otherUnit.Owner.ID != game.Players[game.CurrentPlayer].ID {
+				if otherUnit.Name != HOUSE {
+					game.KillUnit(otherUnit)
+					game.ChangeUnitPosition(unit, nextPosition)
+					stepsMade++
+					// Game over if wizard is killed
+					if otherUnit.Name == WIZARD {
+						hasKilledWizard = true
+						break
+					}
+					break
+				} else {
+					// Other team house - Stopping
+					break
+				}
+			} else {
+				// Unit from own team
+				break
+			}
+		}
+
+		// Nothing on the way, keeps going
+		stepsMade++
+		game.ChangeUnitPosition(unit, nextPosition)
+
+		nextPosition = unit.Position.MoveByOneTowardsDirection(direction)
+	}
+
+	if stepsMade > 0 {
+		return hasKilledWizard, nil
+	} else {
+		return hasKilledWizard, fmt.Errorf("Unit cannot be moved towards that direction")
+	}
+}
+
+func (game *Game) ChangeUnitPosition(unit *Unit, newPosition Position) {
+	game.Board.Board[unit.Position.X][unit.Position.Y] = nil
+	game.Board.Board[newPosition.X][newPosition.Y] = unit
+	unit.Position = newPosition
+}
+
+func (game *Game) MoveDragon(unit *Unit, direction Direction) (bool, error) {
+	hasKilledWizard := false
+	hasAlreadyKilledDragon := false
+	stepsMade := 0
+	nextPosition := unit.Position.MoveByOneTowardsDirection(direction)
+	for game.Board.IsValid(nextPosition) {
+		otherUnit := game.Board.GetUnitAtPosition(nextPosition)
+		if otherUnit != nil {
+			// Unit from someone else
+			if otherUnit.Owner.ID != game.Players[game.CurrentPlayer].ID {
+				if otherUnit.Name != HOUSE {
+					if otherUnit.Name != DRAGON {
+						// Any other unit is ok
+						game.KillUnit(otherUnit)
+					} else if otherUnit.Name == DRAGON && !hasAlreadyKilledDragon {
+						// Can only kill 1 dragon per swoop
+						hasAlreadyKilledDragon = true
+						game.KillUnit(otherUnit)
+					}
+					// Game over if wizard is killed
+					if otherUnit.Name == WIZARD {
+						hasKilledWizard = true
+						break
+					}
+					// Keep going
+				} else {
+					// Other team house - Stopping
+					break
+				}
+			} else {
+				// Unit from own team
+				break
+			}
+		}
+
+		// Nothing on the way, keeps going
+		stepsMade++
+		game.ChangeUnitPosition(unit, nextPosition)
+
+		nextPosition = unit.Position.MoveByOneTowardsDirection(direction)
+	}
+
+	if stepsMade > 0 {
+		return hasKilledWizard, nil
+	} else {
+		return hasKilledWizard, fmt.Errorf("Unit cannot be moved towards that direction")
+	}
+}
+
+func (game *Game) MoveWizard(unit *Unit, direction Direction) (bool, error) {
+	hasKilledWizard := false
+	stepsMade := 0
+	nextPosition := unit.Position.MoveByOneTowardsDirection(direction)
+	for game.Board.IsValid(nextPosition) {
+		otherUnit := game.Board.GetUnitAtPosition(nextPosition)
+		if otherUnit != nil {
+			// Unit from someone else
+			if otherUnit.Owner.ID != game.Players[game.CurrentPlayer].ID {
+				if otherUnit.Name != HOUSE {
+					// Any unit is ok
+					game.KillUnit(otherUnit)
+
+					// Game over if wizard is killed
+					if otherUnit.Name == WIZARD {
+						hasKilledWizard = true
+						break
+					}
+					// else keep going
+				} else {
+					// Other team house - Stopping
+					break
+				}
+			} else {
+				// Unit from own team
+				break
+			}
+		}
+
+		// Nothing on the way, keeps going
+		stepsMade++
+		game.ChangeUnitPosition(unit, nextPosition)
+
+		nextPosition = unit.Position.MoveByOneTowardsDirection(direction)
+	}
+
+	if stepsMade > 0 {
+		return hasKilledWizard, nil
+	} else {
+		return hasKilledWizard, fmt.Errorf("Unit cannot be moved towards that direction")
+	}
+}
+
+func (p Position) MoveByOneTowardsDirection(direction Direction) Position {
+	switch direction {
+	case Up:
+		return Position{X: p.X - 1, Y: p.Y}
+	case Left:
+		return Position{X: p.X, Y: p.Y - 1}
+	case Right:
+		return Position{X: p.X, Y: p.Y + 1}
+	case Down:
+		return Position{X: p.X + 1, Y: p.Y}
+	default:
+		return p
+	}
+}
+
+func (game *Game) KillUnit(unit *Unit) {
+	game.Players[game.CurrentPlayer].Score += unit.Points
+
+	game.Board.Board[unit.Position.X][unit.Position.Y] = nil
 }
 
 func (board *Board) Adjacent(pos Position) []Position {
@@ -249,7 +416,7 @@ func (board *Board) IsValidPosition(position Position, unitName UnitName) error 
 	return nil
 }
 
-func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y uint) error {
+func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y, points uint) error {
 	if unitName == HOUSE {
 		return errors.New("cannot place houses with this")
 	}
@@ -268,6 +435,7 @@ func (game *Game) PositionUnit(unitName UnitName, player *Player, x, y uint) err
 		CanMove:  true,
 		Position: pos,
 		Owner:    player,
+		Points:   points,
 	}
 
 	game.Board.Board[x][y] = unit
