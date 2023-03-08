@@ -66,8 +66,6 @@ func main() {
 			game.Finished = true
 		}
 	}
-	// Implement the check mate mechanism
-	// Implement the check mechanism
 }
 
 // Read a line of input from the terminal
