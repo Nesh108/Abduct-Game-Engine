@@ -20,11 +20,12 @@ func NewGame(size uint) *types.Game {
 	player2 := CreatePlayer(1, "B", types.Blue, 6)
 
 	game := &types.Game{
-		Board:         board,
-		Players:       []*types.Player{player1, player2},
-		CurrentPlayer: 0,
-		Finished:      false,
-		TurnNumber:    1,
+		Board:            board,
+		Players:          []*types.Player{player1, player2},
+		CurrentPlayer:    0,
+		Finished:         false,
+		TurnNumber:       1,
+		ScoreLossPerTurn: 10,
 	}
 
 	// Position Player 1's units

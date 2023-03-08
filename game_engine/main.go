@@ -18,7 +18,7 @@ func main() {
 	}
 
 	fmt.Println("====================================")
-	fmt.Println(types.Red, "Ambush Game", types.Reset)
+	fmt.Println(types.Red, "Abduct Game", types.Reset)
 	fmt.Println("-----------------------------")
 
 	game := engine.NewGame(10)

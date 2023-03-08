@@ -25,11 +25,12 @@ const (
 )
 
 type Game struct {
-	*Board                  // the 2D board of the game
-	Players       []*Player // the two players
-	CurrentPlayer uint      // the current player
-	Finished      bool      // whether the game is finished
-	TurnNumber    uint      // current turn id
+	*Board                     // the 2D board of the game
+	Players          []*Player // the two players
+	CurrentPlayer    uint      // the current player
+	Finished         bool      // whether the game is finished
+	TurnNumber       uint      // current turn id
+	ScoreLossPerTurn uint      // how many points are lost per every new turn
 }
 
 type Player struct {
@@ -114,6 +115,8 @@ const (
 
 func (game *Game) NextTurn() {
 	game.TurnNumber++
+	// Remove poi
+	game.Players[game.CurrentPlayer].Score -= game.ScoreLossPerTurn
 
 	// Swap player
 	if game.CurrentPlayer == 0 {
